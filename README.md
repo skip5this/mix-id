@@ -2,8 +2,10 @@
 
 Identify every track in a DJ mix — from a local file or streaming URL.
 
+Drop in a Mixcloud, SoundCloud, or YouTube link and get a full tracklist in seconds.
+
 ```
-$ npx mix-id https://soundcloud.com/dj/my-set
+$ npx mix-id https://www.mixcloud.com/dj/my-set
 
 📥 Downloading...
 ✅ my-set.mp3 (142.3 MB)
@@ -40,17 +42,19 @@ Settings: 30s step, 18s sample
 npm install -g mix-id
 ```
 
-Or run directly:
+Or run directly (no install needed):
 
 ```bash
 npx mix-id my-mix.mp3
 ```
 
-### Requirements
+### Dependencies
 
 - **Node.js** 18+
-- **ffmpeg** — audio processing (`brew install ffmpeg`)
-- **yt-dlp** — URL downloads (`brew install yt-dlp`) — only needed for URLs
+- **ffmpeg** — audio processing
+- **yt-dlp** — URL downloads (only needed for URLs)
+
+On macOS, mix-id will **auto-install** ffmpeg and yt-dlp via Homebrew if they're missing. On Linux, install them manually with your package manager.
 
 ## Usage
 
@@ -68,7 +72,7 @@ mix-id https://www.mixcloud.com/dj/show-name
 mix-id https://www.youtube.com/watch?v=...
 
 # Custom scan settings
-mix-id my-mix.mp3 --step 60 --segment 20
+mix-id my-mix.mp3 --step 30 --segment 20
 
 # Resume from a specific position
 mix-id my-mix.mp3 --start 3600
@@ -78,10 +82,19 @@ mix-id my-mix.mp3 --start 3600
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--step` | `30` | Seconds between scan points |
+| `--step` | auto | Seconds between scan points (30s for mixes ≤1hr, 60s for longer) |
 | `--segment` | `18` | Sample length for recognition |
 | `--start` | `0` | Skip to this position (seconds) |
 | `--help` | | Show help |
+
+### Smart step scaling
+
+mix-id automatically adjusts scan resolution based on mix length:
+
+- **≤1 hour** → 30s steps (~120 requests, more precise timestamps)
+- **>1 hour** → 60s steps (~60-150 requests, avoids rate limits)
+
+Override with `--step` if you want full control.
 
 ## Output
 
@@ -109,12 +122,15 @@ Any URL that [yt-dlp](https://github.com/yt-dlp/yt-dlp) supports — that's **10
 - Bandcamp
 - And many more
 
+Plus any local audio file (mp3, wav, flac, m4a, etc.)
+
 ## Tips
 
-- **Longer mixes?** The default 30s step works well. Use `--step 60` to scan faster at the cost of precision.
-- **Transitions fuzzy?** Shazam sometimes bounces between two tracks during a mix. mix-id deduplicates these automatically.
 - **No API key needed.** mix-id uses Shazam's public recognition endpoint.
-- **Rate limited?** mix-id waits 2s between requests to be respectful. A 2-hour mix takes ~8 minutes to scan.
+- **Transitions fuzzy?** Shazam sometimes bounces between two tracks during a mix. mix-id deduplicates these automatically.
+- **Rate limited?** mix-id retries automatically with exponential backoff (10s → 20s → 40s). If you're scanning back-to-back, switch VPN/network for a fresh IP.
+- **Resume a scan:** If a scan was interrupted, use `--start` to pick up where you left off (in seconds).
+- **Want more precision?** Use `--step 30` on longer mixes, but be aware of potential rate limiting.
 
 ## License
 
