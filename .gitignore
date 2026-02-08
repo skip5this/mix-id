@@ -1,0 +1,9 @@
+node_modules/
+*.mp3
+*.wav
+*.m4a
+*.webm
+*.ogg
+*_tracklist.txt
+*_tracklist.json
+*.cue
