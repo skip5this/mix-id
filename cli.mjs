@@ -17,7 +17,7 @@ import { existsSync } from 'fs';
 import { basename } from 'path';
 import { scan } from './lib/scanner.mjs';
 import { dedupe, formatTime, writeTXT, writeCUE, writeJSON } from './lib/format.mjs';
-import { downloadURL, fileSize, hasCommand } from './lib/audio.mjs';
+import { downloadURL, fileSize, hasCommand, getDuration } from './lib/audio.mjs';
 
 // --- Parse args ---
 
@@ -36,7 +36,7 @@ for (let i = 0; i < args.length; i++) {
 }
 
 const input = positional[0];
-const step = parseInt(flags.step || '60');
+const step = flags.step ? parseInt(flags.step) : null; // auto-detect if not set
 const segment = parseInt(flags.segment || '18');
 const start = parseInt(flags.start || '0');
 
@@ -48,7 +48,7 @@ if (!input || flags.help) {
     mix-id <file-or-url> [options]
 
   Options:
-    --step <sec>      Time between scan points (default: 60)
+    --step <sec>      Time between scan points (auto: 30s ≤1hr, 60s >1hr)
     --segment <sec>   Sample length for recognition (default: 18)
     --start <sec>     Skip to position before scanning (default: 0)
     --help            Show this help
@@ -117,9 +117,13 @@ if (!existsSync(file)) {
   process.exit(1);
 }
 
+// --- Auto-detect step if not specified ---
+
+const actualStep = step ?? (getDuration(file) > 3600 ? 60 : 30);
+
 // --- Scan ---
 
-const result = await scan(file, { step, segment, start });
+const result = await scan(file, { step: actualStep, segment, start });
 
 // --- Dedupe & output ---
 
