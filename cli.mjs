@@ -67,10 +67,36 @@ if (!input || flags.help) {
 
 // --- Preflight checks ---
 
-if (!hasCommand('ffmpeg') || !hasCommand('ffprobe')) {
-  console.error('❌ ffmpeg is required. Install: brew install ffmpeg');
+async function ensureDeps() {
+  const missing = [];
+  if (!hasCommand('ffmpeg') || !hasCommand('ffprobe')) missing.push('ffmpeg');
+  if (isURL && !hasCommand('yt-dlp')) missing.push('yt-dlp');
+
+  if (missing.length === 0) return;
+
+  // Try auto-install via brew
+  if (hasCommand('brew')) {
+    console.log(`\n📦 Installing missing dependencies: ${missing.join(', ')}...\n`);
+    const { execSync } = await import('child_process');
+    try {
+      execSync(`brew install ${missing.join(' ')}`, { stdio: 'inherit' });
+      console.log('');
+      return;
+    } catch {
+      console.error(`\n❌ Auto-install failed. Please run manually:`);
+      console.error(`   brew install ${missing.join(' ')}`);
+      process.exit(1);
+    }
+  }
+
+  console.error(`\n❌ Missing dependencies: ${missing.join(', ')}`);
+  console.error(`\n   Install with:`);
+  console.error(`   brew install ${missing.join(' ')}    (macOS)`);
+  console.error(`   apt install ${missing.join(' ')}     (Linux)`);
   process.exit(1);
 }
+
+await ensureDeps();
 
 // --- Resolve input ---
 
