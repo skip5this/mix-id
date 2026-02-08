@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mix-id — Identify Every Track in a DJ Mix</title>
+  <meta name="description" content="Paste a URL. Get a timestamped tracklist. Free, open source CLI.">
+  <meta property="og:title" content="mix-id — Identify Every Track in a DJ Mix">
+  <meta property="og:description" content="Paste a URL. Get a timestamped tracklist. Free, open source CLI.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #09090b;
+      --surface: #111113;
+      --border: rgba(255,255,255,0.08);
+      --text: #fafafa;
+      --text-secondary: rgba(255,255,255,0.6);
+      --text-dim: rgba(255,255,255,0.35);
+      --accent: #3b82f6;
+      --green: #4ade80;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      --mono: 'SF Mono', SFMono-Regular, ui-monospace, 'Cascadia Code', monospace;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 1.25rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      background: rgba(9,9,11,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-right {
+      display: flex; gap: 1.25rem; align-items: center;
+    }
+
+    .nav-right a {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-right a:hover { color: var(--text); }
+
+    .nav-gh { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+    /* Shared layout */
+    .content { max-width: 640px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+    }
+
+    .hero-tag {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.75rem, 10vw, 5rem);
+      font-weight: 600;
+      line-height: 1.08;
+      letter-spacing: -0.035em;
+      margin-bottom: 1.5rem;
+      max-width: 700px;
+    }
+
+    .hero .lead {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      max-width: 440px;
+      margin-bottom: 3rem;
+      line-height: 1.5;
+    }
+
+    .install-cmd {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.875rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+
+    .install-cmd:hover { border-color: rgba(255,255,255,0.2); }
+    .install-cmd .dollar { color: var(--text-dim); }
+    .install-cmd .npx { color: var(--green); }
+    .install-cmd .arg { color: var(--text-secondary); }
+
+    .install-cmd .toast {
+      position: absolute;
+      top: -2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font);
+      font-size: 0.75rem;
+      color: var(--green);
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .install-cmd.copied .toast { opacity: 1; }
+
+    .hero-meta {
+      margin-top: 1.25rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .hero-meta a { color: var(--text-secondary); text-decoration: none; }
+    .hero-meta a:hover { color: var(--text); }
+
+    /* Terminal */
+    .terminal-section {
+      padding: 0 1.5rem 0;
+    }
+
+    .terminal {
+      max-width: 640px;
+      margin: 0 auto;
+      background: #0c0c0e;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .terminal-bar .d { width: 10px; height: 10px; border-radius: 50%; }
+    .terminal-bar .d.r { background: #ff5f57; }
+    .terminal-bar .d.y { background: #febc2e; }
+    .terminal-bar .d.g { background: #28c840; }
+
+    .terminal-body {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.9;
+      white-space: pre;
+      overflow-x: auto;
+      color: var(--text);
+    }
+
+    .terminal-body .d { color: var(--text-dim); }
+    .terminal-body .g { color: var(--green); }
+    .terminal-body .b { color: var(--accent); }
+    .terminal-body .m { color: var(--text-secondary); }
+    .terminal-body .s { color: var(--text-dim); }
+
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* Platforms */
+    .platforms-section {
+      padding: 10rem 1.5rem 6rem;
+      text-align: center;
+    }
+
+    .platforms-section h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .platforms-section .sub {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    .platform-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 3rem;
+      flex-wrap: wrap;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .platform {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .platform svg { opacity: 0.5; transition: opacity 0.2s; }
+    .platform:hover svg { opacity: 0.8; }
+
+    .platform-name {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .platform-plus {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    /* Process */
+    .process-section {
+      padding: 6rem 1.5rem;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .process-section h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-dim);
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .process-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      text-align: center;
+    }
+
+    .p-step-num {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+    }
+
+    .p-step h3 {
+      font-size: 1.15rem;
+      font-weight: 500;
+      margin-bottom: 0.4rem;
+    }
+
+    .p-step p {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Output */
+    .output-section {
+      padding: 6rem 1.5rem;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .output-section h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .output-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .output-item {
+      background: var(--surface);
+      padding: 1.5rem;
+    }
+
+    .output-ext {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    .output-item h3 {
+      font-size: 1.05rem;
+      font-weight: 500;
+      margin-bottom: 0.4rem;
+    }
+
+    .output-item p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* CTA */
+    .cta-section {
+      padding: 6rem 1.5rem;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .cta-section h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .cta-section .sub {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .email-form {
+      display: flex;
+      gap: 0.6rem;
+      max-width: 380px;
+      margin: 0 auto 0.75rem;
+    }
+
+    .email-form input {
+      flex: 1;
+      padding: 0.8rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: var(--font);
+    }
+
+    .email-form input::placeholder { color: var(--text-dim); }
+    .email-form input:focus { outline: none; border-color: var(--accent); }
+
+    .email-form button {
+      padding: 0.8rem 1.25rem;
+      background: var(--text);
+      color: var(--bg);
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: var(--font);
+      transition: opacity 0.2s;
+    }
+
+    .email-form button:hover { opacity: 0.85; }
+
+    .cta-note {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    /* Footer */
+    footer {
+      padding: 2rem 1.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    footer a { color: var(--text-dim); text-decoration: none; }
+    footer a:hover { color: var(--text-secondary); }
+    footer span { margin: 0 0.4rem; }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .hero { padding: 5rem 1.25rem 3rem; }
+      .process-steps { grid-template-columns: 1fr; gap: 2rem; }
+      .output-grid { grid-template-columns: 1fr; }
+      .email-form { flex-direction: column; }
+      .platform-row { gap: 2rem; }
+      .nav-right .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="logo">mix-id</a>
+    <div class="nav-right">
+      <a href="https://www.npmjs.com/package/mix-id" class="hide-sm">npm</a>
+      <a href="https://github.com/skip5this/mix-id" class="nav-gh" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <p class="hero-tag">Free · Open Source · CLI</p>
+    <h1>Paste a URL<br>Get a tracklist</h1>
+    <p class="lead">Identify every track in a DJ mix with timestamps. One command, no account needed.</p>
+
+    <div class="install-cmd" onclick="copyCmd(this)">
+      <span class="dollar">$</span>
+      <span><span class="npx">npx mix-id</span> <span class="arg">https://your-mix</span></span>
+      <span class="toast">Copied</span>
+    </div>
+
+    <p class="hero-meta">Requires <a href="https://nodejs.org">Node.js</a> 18+. Dependencies auto-install on macOS.</p>
+  </section>
+
+  <!-- Terminal demo -->
+  <section class="terminal-section">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="d r"></span><span class="d y"></span><span class="d g"></span>
+      </div>
+      <div class="terminal-body"><span class="s">$</span> <span class="g">npx mix-id</span> <span class="s">https://mixcloud.com/dynamicquality/friday-night-set</span>
+
+<span class="d">───────────────────────────────────────────────────────────────</span>
+<span class="b">TRACKLIST</span> <span class="s">— friday-night-set.mp3</span>
+<span class="d">───────────────────────────────────────────────────────────────</span>
+
+ <span class="s"> 1.</span>  <span class="m">[00:00]</span>  Donna Summer — I Feel Love <span class="s">[I Remember Yesterday]</span>
+ <span class="s"> 2.</span>  <span class="m">[04:12]</span>  Daft Punk — Around the World <span class="s">[Homework]</span>
+ <span class="s"> 3.</span>  <span class="m">[08:45]</span>  Bicep — Glue <span class="s">[Bicep]</span>
+ <span class="s"> 4.</span>  <span class="m">[13:20]</span>  The Avalanches — Since I Left You <span class="s">[Since I Left You]</span>
+ <span class="s"> 5.</span>  <span class="m">[18:03]</span>  Caribou — Can't Do Without You <span class="s">[Our Love]</span>
+ <span class="s"> 6.</span>  <span class="m">[22:41]</span>  Peggy Gou — Starry Night <span class="s">[Once]</span>
+ <span class="s"> ...</span>
+
+<span class="d">───────────────────────────────────────────────────────────────</span>
+<span class="s">24 tracks identified · 3 files saved</span></div>
+    </div>
+  </section>
+
+  <!-- Platforms -->
+  <section class="platforms-section">
+    <h2>Works with any source.</h2>
+    <p class="sub">URLs, local files, or anything <a href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md" style="color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px">yt-dlp supports</a>.</p>
+
+    <div class="platform-row">
+      <div class="platform">
+        <!-- Mixcloud -->
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M2.462 8.596C1.11 8.596 0 9.706 0 11.06s1.11 2.462 2.462 2.462c1.353 0 2.462-1.11 2.462-2.462S3.815 8.596 2.462 8.596zM9.846 8.596c-1.353 0-2.462 1.11-2.462 2.462s1.11 2.462 2.462 2.462c1.353 0 2.462-1.11 2.462-2.462S11.198 8.596 9.846 8.596zM20.308 8.596l-3.692 2.462 3.692 2.462L24 11.058z"/></svg>
+        <span class="platform-name">Mixcloud</span>
+      </div>
+      <div class="platform">
+        <!-- SoundCloud -->
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.048-.1-.098-.1zm-.899.828c-.06 0-.091.037-.104.094L0 14.479l.172 1.308c.013.06.045.094.104.094.053 0 .09-.04.104-.094l.2-1.308-.2-1.332c-.015-.06-.045-.094-.104-.094zm1.8-1.143c-.065 0-.105.05-.112.114l-.218 2.451.218 2.362c.007.063.047.114.112.114.063 0 .105-.05.114-.114l.248-2.363-.248-2.45c-.009-.064-.051-.114-.114-.114zm.899-.39c-.077 0-.119.063-.127.126l-.203 2.841.203 2.553c.008.07.05.127.127.127.076 0 .119-.058.127-.127l.232-2.553-.232-2.841c-.008-.063-.051-.126-.127-.126zm.9-.278c-.09 0-.131.07-.139.14l-.186 3.12.186 2.7c.008.076.049.14.139.14.088 0 .131-.064.14-.14l.209-2.7-.21-3.12c-.008-.07-.051-.14-.14-.14zm.9-.06c-.102 0-.143.083-.15.155l-.173 3.337.173 2.778c.007.083.048.155.15.155.1 0 .143-.072.15-.155l.198-2.778-.198-3.337c-.007-.072-.05-.155-.15-.155zm2.598-.238c-.02-.135-.098-.21-.234-.21-.133 0-.21.075-.233.21l-.145 3.63.145 2.803c.023.136.1.212.233.212.136 0 .215-.076.234-.212l.164-2.803-.164-3.63zm.9.038c-.024-.148-.108-.232-.254-.232-.148 0-.232.084-.256.232l-.127 3.592.127 2.776c.024.152.108.232.256.232.146 0 .23-.08.254-.232l.146-2.776-.146-3.592zm.898-.222c-.027-.164-.12-.258-.277-.258-.16 0-.252.094-.279.258l-.112 3.813.112 2.748c.027.166.12.258.279.258.157 0 .25-.092.277-.258l.126-2.748-.126-3.813zM20.055 7.14c-.988 0-1.893.346-2.607.92C17.162 5.238 14.814 3.2 12 3.2c-.69 0-1.36.124-1.984.348-.236.084-.3.17-.302.338v11.208c.003.164.13.3.298.312h10.043c1.64 0 2.945-1.328 2.945-2.952S21.695 7.14 20.055 7.14z"/></svg>
+        <span class="platform-name">SoundCloud</span>
+      </div>
+      <div class="platform">
+        <!-- YouTube -->
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+        <span class="platform-name">YouTube</span>
+      </div>
+      <div class="platform">
+        <!-- Bandcamp -->
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M0 18.75l7.437-13.5H24l-7.438 13.5z"/></svg>
+        <span class="platform-name">Bandcamp</span>
+      </div>
+      <div class="platform">
+        <!-- Local files -->
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/></svg>
+        <span class="platform-name">Local files</span>
+      </div>
+      <span class="platform-plus">+ 1000 more</span>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- Process -->
+  <section class="process-section">
+    <h2>How it works</h2>
+    <div class="process-steps">
+      <div class="p-step">
+        <div class="p-step-num">01</div>
+        <h3>Download</h3>
+        <p>Give it a URL or file. yt-dlp handles the rest.</p>
+      </div>
+      <div class="p-step">
+        <div class="p-step-num">02</div>
+        <h3>Fingerprint</h3>
+        <p>Audio segments are matched against Shazam's catalog of 100M+ songs.</p>
+      </div>
+      <div class="p-step">
+        <div class="p-step-num">03</div>
+        <h3>Output</h3>
+        <p>Clean, deduplicated tracklist in three formats.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- Output formats -->
+  <section class="output-section">
+    <h2>Three formats. Ready to use.</h2>
+    <div class="output-grid">
+      <div class="output-item">
+        <div class="output-ext">.txt</div>
+        <h3>Tracklist</h3>
+        <p>Paste into Mixcloud, show notes, or social.</p>
+      </div>
+      <div class="output-item">
+        <div class="output-ext">.cue</div>
+        <h3>CUE sheet</h3>
+        <p>Track markers for DJ software and media players.</p>
+      </div>
+      <div class="output-item">
+        <div class="output-ext">.json</div>
+        <h3>Metadata</h3>
+        <p>Title, artist, album, timestamps. Build on it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2>Stay in the loop.</h2>
+    <p class="sub">Web version and new features — we'll let you know.</p>
+    <form class="email-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+      <input type="email" name="email" placeholder="you@example.com" required>
+      <button type="submit">Subscribe</button>
+    </form>
+    <p class="cta-note">No spam. Just updates.</p>
+  </section>
+
+  <footer>
+    <a href="https://scottkbell.com">Scott Bell</a>
+    <span>·</span>
+    <a href="https://github.com/skip5this/mix-id">GitHub</a>
+    <span>·</span>
+    <a href="https://www.npmjs.com/package/mix-id">npm</a>
+    <span>·</span>
+    MIT License
+  </footer>
+
+  <script>
+    function copyCmd(el) {
+      navigator.clipboard.writeText('npx mix-id');
+      el.classList.add('copied');
+      setTimeout(() => el.classList.remove('copied'), 1500);
+    }
+  </script>
+
+</body>
+</html>
