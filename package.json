@@ -1,0 +1,38 @@
+{
+  "name": "mix-id",
+  "version": "1.0.6",
+  "description": "Identify tracks in any DJ mix — from a file or URL. Outputs tracklists as TXT, CUE, and JSON.",
+  "type": "module",
+  "bin": {
+    "mix-id": "./cli.mjs"
+  },
+  "files": [
+    "cli.mjs",
+    "lib/"
+  ],
+  "keywords": [
+    "dj",
+    "tracklist",
+    "shazam",
+    "music",
+    "recognition",
+    "mix",
+    "cue",
+    "mixcloud",
+    "soundcloud",
+    "audio",
+    "fingerprint"
+  ],
+  "author": "Scott Bell",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skip5this/mix-id"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "shazam-api": "^0.3.0"
+  }
+}
