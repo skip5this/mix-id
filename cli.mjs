@@ -65,6 +65,10 @@ if (!input || flags.help) {
   process.exit(input ? 0 : 1);
 }
 
+// --- Resolve input type ---
+
+const isURL = /^https?:\/\//i.test(input);
+
 // --- Preflight checks ---
 
 async function ensureDeps() {
@@ -97,10 +101,6 @@ async function ensureDeps() {
 }
 
 await ensureDeps();
-
-// --- Resolve input ---
-
-const isURL = /^https?:\/\//i.test(input);
 let file;
 
 if (isURL) {
