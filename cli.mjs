@@ -36,7 +36,7 @@ for (let i = 0; i < args.length; i++) {
 }
 
 const input = positional[0];
-const step = parseInt(flags.step || '30');
+const step = parseInt(flags.step || '60');
 const segment = parseInt(flags.segment || '18');
 const start = parseInt(flags.start || '0');
 
@@ -48,7 +48,7 @@ if (!input || flags.help) {
     mix-id <file-or-url> [options]
 
   Options:
-    --step <sec>      Time between scan points (default: 30)
+    --step <sec>      Time between scan points (default: 60)
     --segment <sec>   Sample length for recognition (default: 18)
     --start <sec>     Skip to position before scanning (default: 0)
     --help            Show this help
