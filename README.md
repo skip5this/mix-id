@@ -1,136 +1,116 @@
-# mix-id
+# Cuezy
 
-Identify every track in a DJ mix — from a local file or streaming URL.
+Cuezy is a macOS-first Electron app for identifying timestamped songs in local DJ mixes, radio sets, and VOD files.
 
-Drop in a Mixcloud, SoundCloud, or YouTube link and get a full tracklist in seconds.
+The project is transitioning from the original `mix-id` CLI fork into a desktop app. The inherited CLI and reusable recognition core are still kept in place while the Electron app becomes the primary product.
 
-```
-$ npx mix-id https://www.mixcloud.com/dj/my-set
-
-📥 Downloading...
-✅ my-set.mp3 (142.3 MB)
-
-🎵 mix-id
-──────────────────────────────────────────────────
-File:     my-set.mp3
-Duration: 1:30:12
-Settings: 30s step, 18s sample
-──────────────────────────────────────────────────
-
-[00:00] 1% ✅ The Orb — Little Fluffy Clouds
-[00:30] 1% ↩️  The Orb — Little Fluffy Clouds
-[01:00] 2% ✅ Surface — Falling in Love
-...
-
-──────────────────────────────────────────────────
-🎧 TRACKLIST — my-set.mp3
-──────────────────────────────────────────────────
- 1. [00:00] The Orb — Little Fluffy Clouds
- 2. [01:00] Surface — Falling in Love
- 3. [04:30] Madonna — Vogue
-──────────────────────────────────────────────────
-
-💾 Output:
-   my-set_tracklist.txt
-   my-set.cue
-   my-set_tracklist.json
-```
-
-## Install
+## Desktop App
 
 ```bash
-npm install -g mix-id
+npm install
+npm run dev       # Electron development app
+npm run build     # electron-vite build
+npm run dist:mac  # unsigned local dmg + zip build
 ```
 
-Or run directly (no install needed):
+The desktop app currently supports local audio and video files only. URL downloads and `yt-dlp` support remain available through the inherited CLI for now.
+
+Requirements:
+
+- Node.js `^20.19.0 || >=22.12.0`
+- `ffmpeg` and `ffprobe` available on `PATH`
+
+Privacy note: audio is processed locally, but short snippets are sent to Shazam's public recognition endpoint for identification.
+
+## Repository Layout
+
+```text
+cli.mjs                 # inherited mix-id CLI entrypoint
+lib/                    # reusable audio analysis, scanning, recognition, and CLI formatting core
+src/main/               # Electron main process
+src/preload/            # secure preload bridge exposed to the renderer
+src/renderer/           # React renderer app
+src/shared/             # code shared by Electron processes
+test/                   # Node test runner coverage for core and shared helpers
+electron.vite.config.js # Electron/Vite build configuration
+```
+
+This layout is intentionally transitional. `lib/` remains stable so the CLI and programmatic API keep working. A later refactor can move that code into `src/core/` once Cuezy no longer needs to preserve the old package surface.
+
+## Desktop Packaging Notes
+
+Public macOS distribution will require Developer ID signing and notarization. The current packaging config is intended for unsigned local development builds.
+
+Packaging TODOs:
+
+- Add app icon and DMG background/layout polish.
+- Decide Apple Silicon arm64, Intel x64, and later universal build strategy.
+- Add Developer ID signing, notarization, hardened runtime, and entitlements via environment variables.
+- Add auto-update and clearer portable/zip distribution strategy.
+- Bundle ffmpeg with `extraResources` / `asarUnpack`; do not pack executable binaries inside ASAR.
+- Add URL/yt-dlp GUI support after the local-file workflow is solid.
+- Add Electron fuses hardening and better installer metadata.
+
+## Inherited CLI
+
+The original `mix-id` CLI is still available:
 
 ```bash
 npx mix-id my-mix.mp3
-```
-
-### Dependencies
-
-- **Node.js** 18+
-- **ffmpeg** — audio processing
-- **yt-dlp** — URL downloads (only needed for URLs)
-
-On macOS, mix-id will **auto-install** ffmpeg and yt-dlp via Homebrew if they're missing. On Linux, install them manually with your package manager.
-
-## Usage
-
-```bash
-# Local file
-mix-id my-mix.mp3
-
-# SoundCloud
 mix-id https://soundcloud.com/dj/set-name
-
-# Mixcloud
 mix-id https://www.mixcloud.com/dj/show-name
-
-# YouTube
 mix-id https://www.youtube.com/watch?v=...
-
-# Custom scan settings
 mix-id my-mix.mp3 --step 30 --segment 20
-
-# Resume from a specific position
 mix-id my-mix.mp3 --start 3600
 ```
 
-## Options
+CLI requirements:
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--step` | auto | Seconds between scan points (30s for mixes ≤1hr, 60s for longer) |
-| `--segment` | `18` | Sample length for recognition |
-| `--start` | `0` | Skip to this position (seconds) |
-| `--help` | | Show help |
+- `ffmpeg` and `ffprobe` for local audio processing
+- `yt-dlp` for URL downloads
 
-### Smart step scaling
+On macOS, the CLI will try to auto-install missing command-line dependencies through Homebrew. On Linux, install them with your package manager.
 
-mix-id automatically adjusts scan resolution based on mix length:
+CLI output formats:
 
-- **≤1 hour** → 30s steps (~120 requests, more precise timestamps)
-- **>1 hour** → 60s steps (~60-150 requests, avoids rate limits)
+- `_tracklist.txt` for paste-friendly tracklists
+- `.cue` for CUE sheets
+- `_tracklist.json` for structured metadata
 
-Override with `--step` if you want full control.
+## Programmatic API
 
-## Output
+The analysis core can still be imported from ESM code:
 
-mix-id generates three files:
+```js
+import { analyzeAudio } from 'mix-id/lib/analyze-audio.mjs';
 
-- **`_tracklist.txt`** — Paste-friendly format for Mixcloud, etc.
-- **`.cue`** — CUE sheet with track markers and timestamps
-- **`_tracklist.json`** — Structured data with full metadata
+const controller = new AbortController();
+const result = await analyzeAudio('my-mix.mp3', {
+  step: 30,
+  segment: 18,
+  signal: controller.signal,
+}, {
+  onSegmentResult(segment) {
+    // Stream progress into your app UI.
+  },
+});
+```
 
-## How it works
+Cancellation is best-effort: Cuezy checks `AbortSignal` before and after audio tool calls, between scan segments, and during retry waits. A recognition request already in flight may continue until the Shazam library returns.
 
-1. Downloads audio from URL (if given) using yt-dlp
-2. Splits the audio into overlapping segments
-3. Fingerprints each segment via Shazam's recognition API
-4. Deduplicates consecutive matches (handles DJ transitions)
-5. Outputs clean tracklist in multiple formats
+## How Recognition Works
 
-## Supported sources
+1. Resolve the input as a local file or, in the CLI, download URL audio with `yt-dlp`.
+2. Split the audio into short overlapping segments with ffmpeg.
+3. Fingerprint each segment through Shazam recognition.
+4. Deduplicate consecutive matches to smooth DJ transitions.
+5. Present or export a timestamped tracklist.
 
-Any URL that [yt-dlp](https://github.com/yt-dlp/yt-dlp) supports — that's **1000+ sites** including:
+## Notes
 
-- SoundCloud
-- Mixcloud
-- YouTube
-- Bandcamp
-- And many more
-
-Plus any local audio file (mp3, wav, flac, m4a, etc.)
-
-## Tips
-
-- **No API key needed.** mix-id uses Shazam's public recognition endpoint.
-- **Transitions fuzzy?** Shazam sometimes bounces between two tracks during a mix. mix-id deduplicates these automatically.
-- **Rate limited?** mix-id retries automatically with exponential backoff (10s → 20s → 40s). If you're scanning back-to-back, switch VPN/network for a fresh IP.
-- **Resume a scan:** If a scan was interrupted, use `--start` to pick up where you left off (in seconds).
-- **Want more precision?** Use `--step 30` on longer mixes, but be aware of potential rate limiting.
+- No API key is needed; the inherited recognition layer uses Shazam's public recognition endpoint.
+- Longer mixes use larger default scan steps to reduce rate limiting.
+- If a scan is interrupted in the CLI, use `--start` to resume from a later timestamp.
 
 ## License
 

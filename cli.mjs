@@ -13,32 +13,16 @@
  *   mix-id https://youtube.com/watch?v=... --step 60
  */
 
-import { existsSync } from 'fs';
 import { basename } from 'path';
-import { scan } from './lib/scanner.mjs';
-import { dedupe, formatTime, writeTXT, writeCUE, writeJSON } from './lib/format.mjs';
-import { downloadURL, fileSize, hasCommand, getDuration } from './lib/audio.mjs';
+import { spawnSync } from 'child_process';
+import { analyzeAudio, normalizeAnalysisOptions } from './lib/analyze-audio.mjs';
+import { formatTime, writeTXT, writeCUE, writeJSON } from './lib/format.mjs';
+import { fileSize, hasCommand } from './lib/audio.mjs';
+import { parseCliArgs } from './lib/cli-options.mjs';
 
 // --- Parse args ---
 
-const args = process.argv.slice(2);
-const flags = {};
-const positional = [];
-
-for (let i = 0; i < args.length; i++) {
-  if (args[i].startsWith('--')) {
-    const key = args[i].slice(2);
-    flags[key] = args[i + 1] || true;
-    i++;
-  } else {
-    positional.push(args[i]);
-  }
-}
-
-const input = positional[0];
-const step = flags.step ? parseInt(flags.step) : null; // auto-detect if not set
-const segment = parseInt(flags.segment || '18');
-const start = parseInt(flags.start || '0');
+const { input, flags, options } = parseCliArgs(process.argv.slice(2));
 
 if (!input || flags.help) {
   console.log(`
@@ -65,7 +49,12 @@ if (!input || flags.help) {
   process.exit(input ? 0 : 1);
 }
 
-// --- Resolve input type ---
+try {
+  normalizeAnalysisOptions(options);
+} catch (err) {
+  console.error(`❌ ${err.message}`);
+  process.exit(1);
+}
 
 const isURL = /^https?:\/\//i.test(input);
 
@@ -81,16 +70,15 @@ async function ensureDeps() {
   // Try auto-install via brew
   if (hasCommand('brew')) {
     console.log(`\n📦 Installing missing dependencies: ${missing.join(', ')}...\n`);
-    const { execSync } = await import('child_process');
-    try {
-      execSync(`brew install ${missing.join(' ')}`, { stdio: 'inherit' });
+    const install = spawnSync('brew', ['install', ...missing], { stdio: 'inherit' });
+    if (install.status === 0) {
       console.log('');
       return;
-    } catch {
-      console.error(`\n❌ Auto-install failed. Please run manually:`);
-      console.error(`   brew install ${missing.join(' ')}`);
-      process.exit(1);
     }
+
+    console.error(`\n❌ Auto-install failed. Please run manually:`);
+    console.error(`   brew install ${missing.join(' ')}`);
+    process.exit(1);
   }
 
   console.error(`\n❌ Missing dependencies: ${missing.join(', ')}`);
@@ -101,33 +89,60 @@ async function ensureDeps() {
 }
 
 await ensureDeps();
-let file;
 
-if (isURL) {
-  console.log(`\n📥 Downloading...`);
-  console.log(`   ${input}\n`);
-  file = downloadURL(input, process.cwd());
-  console.log(`✅ ${basename(file)} (${fileSize(file)})\n`);
-} else {
-  file = input;
-}
-
-if (!existsSync(file)) {
-  console.error(`❌ File not found: ${file}`);
+let result;
+try {
+  result = await analyzeAudio(input, {
+    ...options,
+    outputDir: process.cwd(),
+    inheritDownloadProgress: true,
+  }, {
+    onProgress(progress) {
+      if (progress.phase === 'download' && !progress.file) {
+        console.log(`\n📥 Downloading...`);
+        console.log(`   ${input}\n`);
+      } else if (progress.phase === 'download' && progress.file) {
+        console.log(`✅ ${basename(progress.file)} (${fileSize(progress.file)})\n`);
+      } else if (progress.phase === 'scan' && !progress.segmentIndex) {
+        console.log(`\n🎵 mix-id`);
+        console.log('─'.repeat(50));
+        console.log(`File:     ${basename(progress.file)}`);
+        console.log(`Duration: ${formatTime(progress.duration)}`);
+        console.log(`Settings: ${progress.step}s step, ${progress.segment}s sample`);
+        console.log('─'.repeat(50) + '\n');
+      }
+    },
+    onSegmentStart(segmentInfo) {
+      const pct = segmentInfo.totalSegments > 0
+        ? Math.round((segmentInfo.segmentIndex / segmentInfo.totalSegments) * 100)
+        : 100;
+      process.stdout.write(`[${segmentInfo.timestamp}] ${pct}% `);
+    },
+    onSegmentResult(segmentResult) {
+      if (segmentResult.status === 'matched') {
+        process.stdout.write(`✅ ${segmentResult.match.artist} — ${segmentResult.match.title}\n`);
+      } else if (segmentResult.status === 'duplicate') {
+        process.stdout.write(`↩️  ${segmentResult.match.artist} — ${segmentResult.match.title}\n`);
+      } else if (segmentResult.status === 'skipped') {
+        process.stdout.write('⚠️  skip\n');
+      } else if (segmentResult.status === 'error') {
+        process.stdout.write(`⚠️  ${segmentResult.error.message}\n`);
+      } else {
+        process.stdout.write('❓\n');
+      }
+    },
+    onWarning(warning) {
+      if (!warning.segment) {
+        process.stdout.write(`\n   ⏳ ${warning.message}...\n`);
+      }
+    },
+  });
+} catch (err) {
+  console.error(`❌ ${err.message}`);
   process.exit(1);
 }
 
-// --- Auto-detect step if not specified ---
-
-const actualStep = step ?? (getDuration(file) > 3600 ? 60 : 30);
-
-// --- Scan ---
-
-const result = await scan(file, { step: actualStep, segment, start });
-
-// --- Dedupe & output ---
-
-const tracks = dedupe(result.tracks);
+const tracks = result.tracks;
 
 if (tracks.length === 0) {
   console.log('\n❌ No tracks identified.');
@@ -136,20 +151,20 @@ if (tracks.length === 0) {
 
 // Print tracklist
 console.log('\n' + '─'.repeat(50));
-console.log(`🎧 TRACKLIST — ${basename(file)}`);
+console.log(`🎧 TRACKLIST — ${basename(result.file)}`);
 console.log('─'.repeat(50));
 tracks.forEach((t, i) => {
   const num = String(i + 1).padStart(2);
   const album = t.album ? ` [${t.album}]` : '';
   console.log(`${num}. [${t.timestamp}] ${t.artist} — ${t.title}${album}`);
 });
-const removed = result.tracks.length - tracks.length;
+const removed = result.duplicatesRemoved;
 if (removed > 0) console.log(`\n🔄 ${removed} duplicate(s) removed`);
 console.log('─'.repeat(50));
 
 // Write files
-const base = file.replace(/\.[^.]+$/, '');
-const audioFilename = basename(file);
+const base = result.file.replace(/\.[^.]+$/, '');
+const audioFilename = basename(result.file);
 
 writeTXT(tracks, base + '_tracklist.txt');
 writeCUE(tracks, base + '.cue', audioFilename);

@@ -1,9 +1,44 @@
 node_modules/
+.DS_Store
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+.npmrc
+
+# Logs and test/build artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+dist/
+out/
+release/
+
+# Local media inputs
+*.aac
+*.flac
 *.mp3
-*.wav
+*.mp4
 *.m4a
-*.webm
+*.mka
+*.mkv
+*.mov
 *.ogg
+*.opus
+*.wav
+*.webm
+
+# Generated tracklist exports
+*_tracklist.md
 *_tracklist.txt
 *_tracklist.json
 *.cue
+
+# Desktop signing/notarization secrets
+*.p12
+*.p8
+AuthKey_*.p8

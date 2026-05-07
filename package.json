@@ -1,10 +1,19 @@
 {
   "name": "mix-id",
   "version": "1.0.6",
-  "description": "Identify tracks in any DJ mix — from a file or URL. Outputs tracklists as TXT, CUE, and JSON.",
+  "description": "Cuezy desktop app for identifying timestamped songs in DJ mixes and VOD files.",
   "type": "module",
+  "main": "./out/main/index.js",
   "bin": {
     "mix-id": "./cli.mjs"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "test": "node --test"
   },
   "files": [
     "cli.mjs",
@@ -27,12 +36,47 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/skip5this/mix-id"
+    "url": "https://github.com/skip5this/cuezy"
   },
   "engines": {
-    "node": ">=18"
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "build": {
+    "appId": "com.cuezy.app",
+    "productName": "Cuezy",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "lib/**",
+      "package.json",
+      "node_modules/**",
+      "LICENSE"
+    ],
+    "asarUnpack": [
+      "**/node_modules/shazam-api/**"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null,
+      "category": "public.app-category.music"
+    }
   },
   "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "shazam-api": "^0.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^42.0.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
+    "vite": "^7.3.2"
   }
 }
