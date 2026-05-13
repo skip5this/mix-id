@@ -35,6 +35,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 660,
     title: 'Cuezy',
+    titleBarStyle: 'hiddenInset',
     show: false,
     backgroundColor: '#f7f3eb',
     webPreferences: {

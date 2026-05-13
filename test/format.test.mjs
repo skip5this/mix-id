@@ -42,3 +42,38 @@ test('writes txt, cue, and json outputs to paths with spaces', () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('writes valid cue timestamps for fractional track positions', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mix id cue '));
+
+  try {
+    const cue = join(dir, 'fractional mix.cue');
+
+    writeCUE([
+      { position_sec: 61.5, artist: 'Artist', title: 'Track' },
+    ], cue, 'fractional mix.mp3');
+
+    assert.match(readFileSync(cue, 'utf8'), /INDEX 01 01:01:37/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('sanitizes cue quoted fields', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mix id cue '));
+
+  try {
+    const cue = join(dir, 'quote mix.cue');
+
+    writeCUE([
+      { position_sec: 0, artist: 'DJ "A"\nLive', title: 'Song "B"\r\nEdit' },
+    ], cue, 'my "mix".mp3');
+
+    const text = readFileSync(cue, 'utf8');
+    assert.match(text, /FILE "my 'mix'\.mp3" MP3/);
+    assert.match(text, /TITLE "Song 'B' Edit"/);
+    assert.match(text, /PERFORMER "DJ 'A' Live"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

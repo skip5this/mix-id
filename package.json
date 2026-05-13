@@ -32,11 +32,11 @@
     "audio",
     "fingerprint"
   ],
-  "author": "Scott Bell",
+  "author": "onashia",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/skip5this/cuezy"
+    "url": "https://github.com/onashia/cuezy"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
@@ -59,6 +59,7 @@
       "**/node_modules/shazam-api/**"
     ],
     "mac": {
+      "icon": "build/icon.png",
       "target": [
         "dmg",
         "zip"
@@ -73,10 +74,13 @@
     "shazam-api": "^0.3.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.4",
     "@vitejs/plugin-react": "^5.2.0",
+    "daisyui": "^5.5.19",
     "electron": "^42.0.0",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
+    "tailwindcss": "^4.2.4",
     "vite": "^7.3.2"
   }
 }
