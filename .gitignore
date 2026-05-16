@@ -54,6 +54,9 @@ resources/bin/*
 *_tracklist.md
 *_tracklist.txt
 *_tracklist.json
+*-tracklist.md
+*-tracklist.txt
+*-tracklist.json
 *.cue
 
 # Desktop signing/notarization secrets
