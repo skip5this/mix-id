@@ -3,7 +3,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { analyzeAudio, normalizeAnalysisRequest } from '../../lib/analyze-audio.mjs';
 import { hasCommand } from '../../lib/audio.mjs';
-import { buildExport, markdownTracklist } from '../shared/tracklist-export.js';
+import { buildExport, markdownTracklist } from '../../lib/export.mjs';
 import { bundledAudioTools } from './tool-paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,6 +22,7 @@ const AUDIO_EXTENSIONS = [
   'mov',
   'mkv',
 ];
+const MAX_EXPORT_ROWS = 2000;
 
 let mainWindow;
 let activeJob = null;
@@ -120,12 +121,14 @@ async function validateAnalysisInput(input) {
 function defaultExportName(format) {
   if (format === 'json') return 'cuezy-tracklist.json';
   if (format === 'txt') return 'cuezy-tracklist.txt';
+  if (format === 'cue') return 'cuezy-tracklist.cue';
   return 'cuezy-tracklist.md';
 }
 
 function fileFilters(format) {
   if (format === 'json') return [{ name: 'JSON', extensions: ['json'] }];
   if (format === 'txt') return [{ name: 'Text', extensions: ['txt'] }];
+  if (format === 'cue') return [{ name: 'CUE', extensions: ['cue'] }];
   return [{ name: 'Markdown', extensions: ['md', 'markdown'] }];
 }
 
@@ -251,7 +254,7 @@ ipcMain.handle('analysis:cancel', (event, jobId) => {
 
 ipcMain.handle('export:copy-markdown', (event, rows) => {
   ensureTrustedSender(event);
-  const text = markdownTracklist(rows);
+  const text = markdownTracklist(rows, { maxRows: MAX_EXPORT_ROWS });
   clipboard.writeText(text);
   return { copied: true, text };
 });
@@ -263,7 +266,7 @@ ipcMain.handle('export:save', async (event, input) => {
   }
 
   const format = String(input.format || 'markdown');
-  const text = buildExport(format, input.rows);
+  const text = buildExport(format, input.rows, { maxRows: MAX_EXPORT_ROWS });
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Save tracklist',
     defaultPath: defaultExportName(format),

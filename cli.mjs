@@ -14,9 +14,11 @@
  */
 
 import { basename } from 'path';
+import { writeFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { analyzeAudio, normalizeAnalysisRequest } from './lib/analyze-audio.mjs';
-import { formatTime, writeTXT, writeCUE, writeJSON } from './lib/format.mjs';
+import { buildTracklistExport } from './lib/export.mjs';
+import { formatTime } from './lib/format.mjs';
 import { fileSize, hasCommand } from './lib/audio.mjs';
 import { parseCliArgs } from './lib/cli-options.mjs';
 
@@ -167,13 +169,13 @@ console.log('─'.repeat(50));
 const base = result.file.replace(/\.[^.]+$/, '');
 const audioFilename = basename(result.file);
 
-writeTXT(tracks, base + '_tracklist.txt');
-writeCUE(tracks, base + '.cue', audioFilename);
-writeJSON(tracks, base + '_tracklist.json', {
+writeFileSync(base + '_tracklist.txt', buildTracklistExport('txt', tracks));
+writeFileSync(base + '.cue', buildTracklistExport('cue', tracks, { audioFilename, outPath: base + '.cue' }));
+writeFileSync(base + '_tracklist.json', buildTracklistExport('json', tracks, {
   source: audioFilename,
   duration: result.duration,
   segments_scanned: result.segmentsScanned,
-});
+}));
 
 console.log(`\n💾 Output:`);
 console.log(`   ${base}_tracklist.txt`);

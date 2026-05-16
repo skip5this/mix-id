@@ -559,6 +559,9 @@ export default function App() {
                 <button type="button" className="btn btn-sm" onClick={() => save('txt')} disabled={isRunning}>
                   TXT
                 </button>
+                <button type="button" className="btn btn-sm" onClick={() => save('cue')} disabled={isRunning}>
+                  CUE
+                </button>
                 </>
               )}
               <ThemePicker theme={theme} onThemeChange={setTheme} />

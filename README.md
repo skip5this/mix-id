@@ -35,7 +35,6 @@ lib/                    # reusable audio analysis, scanning, recognition, and CL
 src/main/               # Electron main process
 src/preload/            # secure preload bridge exposed to the renderer
 src/renderer/           # React renderer app
-src/shared/             # code shared by Electron processes
 test/                   # Node test runner coverage for core and shared helpers
 electron.vite.config.js # Electron/Vite build configuration
 ```
