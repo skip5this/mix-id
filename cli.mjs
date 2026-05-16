@@ -15,7 +15,7 @@
 
 import { basename } from 'path';
 import { spawnSync } from 'child_process';
-import { analyzeAudio, normalizeAnalysisOptions } from './lib/analyze-audio.mjs';
+import { analyzeAudio, normalizeAnalysisRequest } from './lib/analyze-audio.mjs';
 import { formatTime, writeTXT, writeCUE, writeJSON } from './lib/format.mjs';
 import { fileSize, hasCommand } from './lib/audio.mjs';
 import { parseCliArgs } from './lib/cli-options.mjs';
@@ -49,14 +49,15 @@ if (!input || flags.help) {
   process.exit(input ? 0 : 1);
 }
 
+let analysisRequest;
 try {
-  normalizeAnalysisOptions(options);
+  analysisRequest = await normalizeAnalysisRequest(input, options);
 } catch (err) {
   console.error(`❌ ${err.message}`);
   process.exit(1);
 }
 
-const isURL = /^https?:\/\//i.test(input);
+const isURL = analysisRequest.isURL;
 
 // --- Preflight checks ---
 
@@ -93,7 +94,7 @@ await ensureDeps();
 let result;
 try {
   result = await analyzeAudio(input, {
-    ...options,
+    ...analysisRequest.options,
     outputDir: process.cwd(),
     inheritDownloadProgress: true,
   }, {

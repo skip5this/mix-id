@@ -106,3 +106,24 @@ test('resets extraction failure threshold after a successful segment', async () 
 
   assert.equal(result.segmentsScanned, 4);
 });
+
+test('passes explicit ffmpeg command to segment extraction', async () => {
+  const commands = [];
+
+  await scan('/tmp/fake mix.mp3', {
+    duration: 10,
+    step: 10,
+    segment: 10,
+    quiet: true,
+    rateLimitMs: 0,
+    ffmpegCommand: '/opt/cuezy/ffmpeg',
+    extractSegment: async (_file, _start, _duration, outPath, opts) => {
+      commands.push(opts.ffmpegCommand);
+      writeFileSync(outPath, Buffer.alloc(8));
+      return true;
+    },
+    recognize: async () => null,
+  });
+
+  assert.deepEqual(commands, ['/opt/cuezy/ffmpeg']);
+});

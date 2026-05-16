@@ -13,12 +13,17 @@ npm run build     # electron-vite build
 npm run dist:mac  # unsigned local dmg + zip build
 ```
 
+Release packaging fetches pinned FFmpeg and FFprobe binaries into
+`resources/bin/` before building. The generated binaries are ignored by git.
+For packaging and release validation, see `docs/release.md`.
+
 The desktop app currently supports local audio and video files only. URL downloads and `yt-dlp` support remain available through the inherited CLI for now.
 
 Requirements:
 
 - Node.js `^20.19.0 || >=22.12.0`
-- `ffmpeg` and `ffprobe` available on `PATH`
+- Development runs need either fetched bundled tools in `resources/bin/` or
+  `ffmpeg` and `ffprobe` available on `PATH`
 
 Privacy note: audio is processed locally, but short snippets are sent to Shazam's public recognition endpoint for identification.
 
@@ -47,7 +52,7 @@ Packaging TODOs:
 - Decide Apple Silicon arm64, Intel x64, and later universal build strategy.
 - Add Developer ID signing, notarization, hardened runtime, and entitlements via environment variables.
 - Add auto-update and clearer portable/zip distribution strategy.
-- Bundle ffmpeg with `extraResources` / `asarUnpack`; do not pack executable binaries inside ASAR.
+- Keep pinned FFmpeg binary source/checksum notices current.
 - Add URL/yt-dlp GUI support after the local-file workflow is solid.
 - Add Electron fuses hardening and better installer metadata.
 
@@ -114,4 +119,8 @@ Cancellation is best-effort: Cuezy checks `AbortSignal` before and after audio t
 
 ## License
 
-MIT
+Cuezy is licensed under the GNU General Public License v3.0 or later. See
+`LICENSE` for the full license text.
+
+Portions of Cuezy are derived from the original MIT-licensed `mix-id` project.
+The original copyright and MIT license notice are preserved in `NOTICE`.

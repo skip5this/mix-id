@@ -10,14 +10,18 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs",
+    "verify:ffmpeg": "node scripts/verify-ffmpeg-binaries.mjs",
     "preview": "electron-vite preview",
-    "dist": "electron-vite build && electron-builder",
-    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist": "npm run fetch:ffmpeg && npm run verify:ffmpeg && electron-vite build && electron-builder",
+    "dist:mac": "npm run fetch:ffmpeg && npm run verify:ffmpeg && electron-vite build && electron-builder --mac",
     "test": "node --test"
   },
   "files": [
     "cli.mjs",
-    "lib/"
+    "lib/",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "keywords": [
     "dj",
@@ -33,7 +37,7 @@
     "fingerprint"
   ],
   "author": "onashia",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/onashia/cuezy"
@@ -52,6 +56,8 @@
       "out/**",
       "lib/**",
       "package.json",
+      "NOTICE",
+      "THIRD_PARTY_NOTICES.md",
       "node_modules/**",
       "LICENSE"
     ],
@@ -65,7 +71,16 @@
         "zip"
       ],
       "identity": null,
-      "category": "public.app-category.music"
+      "category": "public.app-category.music",
+      "extraResources": [
+        {
+          "from": "resources/bin/darwin-${arch}",
+          "to": "bin/darwin-${arch}",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
     }
   },
   "dependencies": {

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "description": "Pinned FFmpeg/ffprobe binary downloads for Cuezy packaging.",
+  "targets": {
+    "darwin-arm64": {
+      "status": "active",
+      "version": "8.1",
+      "provider": "Martin Riedl FFmpeg Build Server",
+      "license": "GPL-2.0-or-later",
+      "source": "https://ffmpeg.martin-riedl.de/",
+      "buildScript": "https://git.martin-riedl.de/ffmpeg/build-script",
+      "artifacts": {
+        "ffmpeg": {
+          "url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1774549676_8.1/ffmpeg.zip",
+          "sha256": "cc3a7e0cce36c5eca6c17eeb93830984c657637a8e710dc98f19c8051201fa3a",
+          "archiveType": "zip",
+          "path": "ffmpeg"
+        },
+        "ffprobe": {
+          "url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1774549676_8.1/ffprobe.zip",
+          "sha256": "fd2e6b7fad9c9aa2bec17c0d7211b5afcc00b4b5c9b63c120985e80c3c198af6",
+          "archiveType": "zip",
+          "path": "ffprobe"
+        }
+      }
+    },
+    "darwin-x64": {
+      "status": "active",
+      "version": "8.1",
+      "provider": "Martin Riedl FFmpeg Build Server",
+      "license": "GPL-2.0-or-later",
+      "source": "https://ffmpeg.martin-riedl.de/",
+      "buildScript": "https://git.martin-riedl.de/ffmpeg/build-script",
+      "artifacts": {
+        "ffmpeg": {
+          "url": "https://ffmpeg.martin-riedl.de/download/macos/amd64/1774556648_8.1/ffmpeg.zip",
+          "sha256": "eaa8aa619f8eccc7f548a730097f5d299cbf2d418888421c137557344d821130",
+          "archiveType": "zip",
+          "path": "ffmpeg"
+        },
+        "ffprobe": {
+          "url": "https://ffmpeg.martin-riedl.de/download/macos/amd64/1774556648_8.1/ffprobe.zip",
+          "sha256": "221bd0716dc15daf5745c5503773e5c23264c10c5ea956aa17ef492bbc0b0ac7",
+          "archiveType": "zip",
+          "path": "ffprobe"
+        }
+      }
+    }
+  }
+}

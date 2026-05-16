@@ -24,10 +24,13 @@ coverage/
 dist/
 out/
 release/
+resources/bin/*
+!resources/bin/README.md
 *.tsbuildinfo
 *.blockmap
 *.dmg
 *.zip
+*.tgz
 *.AppImage
 *.snap
 *.deb

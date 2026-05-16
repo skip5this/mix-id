@@ -44,6 +44,25 @@ test('extractSegment rejects when ffmpeg is aborted', async () => {
   }
 });
 
+test('extractSegment accepts an explicit ffmpeg command path', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mix-id-audio-'));
+
+  try {
+    const ffmpeg = join(dir, 'custom-ffmpeg');
+    writeFileSync(ffmpeg, '#!/bin/sh\nshift 15\nprintf ok > "$1"\n');
+    chmodSync(ffmpeg, 0o755);
+
+    const outPath = join(dir, 'segment.raw');
+    const extracted = await extractSegment('/tmp/input.mp3', 0, 1, outPath, {
+      ffmpegCommand: ffmpeg,
+    });
+
+    assert.equal(extracted, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('getDuration rejects when ffprobe output has no duration', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mix-id-audio-'));
 

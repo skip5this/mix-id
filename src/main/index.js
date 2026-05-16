@@ -1,10 +1,10 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain } from 'electron';
-import { existsSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { analyzeAudio, normalizeAnalysisOptions } from '../../lib/analyze-audio.mjs';
+import { analyzeAudio, normalizeAnalysisRequest } from '../../lib/analyze-audio.mjs';
 import { hasCommand } from '../../lib/audio.mjs';
 import { buildExport, markdownTracklist } from '../shared/tracklist-export.js';
+import { bundledAudioTools } from './tool-paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -95,40 +95,26 @@ function send(channel, payload) {
   mainWindow.webContents.send(channel, payload);
 }
 
-function validateLocalAudioPath(filePath) {
-  if (typeof filePath !== 'string' || filePath.trim() === '') {
-    throw new TypeError('Select an audio file first.');
-  }
-
-  if (/^https?:\/\//i.test(filePath)) {
-    throw new TypeError('The desktop MVP supports local files only.');
-  }
-
-  if (!existsSync(filePath)) {
-    throw new Error(`File not found: ${filePath}`);
-  }
-
-  const stat = statSync(filePath);
-  if (!stat.isFile()) {
-    throw new TypeError('Selected path is not a file.');
-  }
-
-  return filePath;
-}
-
-function validateAnalysisInput(input) {
+async function validateAnalysisInput(input) {
   if (!input || typeof input !== 'object') {
     throw new TypeError('Analysis options are required.');
   }
 
-  const filePath = validateLocalAudioPath(input.filePath);
-  const options = normalizeAnalysisOptions({
+  if (typeof input.filePath !== 'string' || input.filePath.trim() === '') {
+    throw new TypeError('Select an audio file first.');
+  }
+
+  const request = await normalizeAnalysisRequest(input.filePath, {
     step: input.step === null || input.step === undefined ? null : Number(input.step),
     segment: input.segment === undefined ? 18 : Number(input.segment),
     start: input.start === undefined ? 0 : Number(input.start),
+  }, {
+    allowUrls: false,
+    requireLocalFile: true,
+    localOnlyMessage: 'The desktop MVP supports local files only.',
   });
 
-  return { filePath, options };
+  return { filePath: request.input, options: request.options };
 }
 
 function defaultExportName(format) {
@@ -143,13 +129,40 @@ function fileFilters(format) {
   return [{ name: 'Markdown', extensions: ['md', 'markdown'] }];
 }
 
+function audioTools() {
+  const bundled = bundledAudioTools();
+  if (bundled.available) return bundled;
+
+  if (app.isPackaged) {
+    return {
+      available: false,
+      ffmpegCommand: null,
+      ffprobeCommand: null,
+      source: 'missing',
+      binDir: bundled.binDir,
+    };
+  }
+
+  const ffmpegAvailable = hasCommand('ffmpeg');
+  const ffprobeAvailable = hasCommand('ffprobe');
+  return {
+    available: ffmpegAvailable && ffprobeAvailable,
+    ffmpegCommand: 'ffmpeg',
+    ffprobeCommand: 'ffprobe',
+    source: 'system',
+    binDir: bundled.binDir,
+  };
+}
+
 ipcMain.handle('app:get-info', event => {
   ensureTrustedSender(event);
+  const tools = audioTools();
   return {
     name: app.getName(),
     version: app.getVersion(),
     isPackaged: app.isPackaged,
-    ffmpegAvailable: hasCommand('ffmpeg') && hasCommand('ffprobe'),
+    ffmpegAvailable: tools.available,
+    audioToolsSource: tools.available ? tools.source : 'missing',
   };
 });
 
@@ -177,11 +190,14 @@ ipcMain.handle('analysis:start', async (event, input) => {
     throw new Error('An analysis job is already running.');
   }
 
-  if (!hasCommand('ffmpeg') || !hasCommand('ffprobe')) {
-    throw new Error('ffmpeg and ffprobe are required. Install ffmpeg and try again.');
+  const tools = audioTools();
+  if (!tools.available) {
+    throw new Error(app.isPackaged
+      ? 'Cuezy could not find its bundled audio tools. Reinstall Cuezy and try again.'
+      : 'ffmpeg and ffprobe are required. Install ffmpeg or add bundled tools under resources/bin and try again.');
   }
 
-  const { filePath, options } = validateAnalysisInput(input);
+  const { filePath, options } = await validateAnalysisInput(input);
   const jobId = `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const controller = new AbortController();
   activeJob = { id: jobId, controller };
@@ -191,6 +207,8 @@ ipcMain.handle('analysis:start', async (event, input) => {
       const result = await analyzeAudio(filePath, {
         ...options,
         signal: controller.signal,
+        ffmpegCommand: tools.ffmpegCommand,
+        ffprobeCommand: tools.ffprobeCommand,
       }, {
         onProgress(progress) {
           send('analysis:progress', { jobId, progress });
