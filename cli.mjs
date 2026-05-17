@@ -19,7 +19,7 @@ import { spawnSync } from 'child_process';
 import { analyzeAudio, normalizeAnalysisRequest } from './lib/analyze-audio.mjs';
 import { buildTracklistExport } from './lib/export.mjs';
 import { formatTime } from './lib/format.mjs';
-import { fileSize, hasCommand } from './lib/audio.mjs';
+import { fileSize, hasCommand, resolveCommandPath } from './lib/audio.mjs';
 import { parseCliArgs } from './lib/cli-options.mjs';
 
 // --- Parse args ---
@@ -68,7 +68,7 @@ async function ensureDeps() {
   if (!hasCommand('ffmpeg') || !hasCommand('ffprobe')) missing.push('ffmpeg');
   if (isURL && !hasCommand('yt-dlp')) missing.push('yt-dlp');
 
-  if (missing.length === 0) return;
+  if (missing.length === 0) return resolveCliTools();
 
   // Try auto-install via brew
   if (hasCommand('brew')) {
@@ -76,7 +76,7 @@ async function ensureDeps() {
     const install = spawnSync('brew', ['install', ...missing], { stdio: 'inherit' });
     if (install.status === 0) {
       console.log('');
-      return;
+      return resolveCliTools({ refresh: true });
     }
 
     console.error(`\n❌ Auto-install failed. Please run manually:`);
@@ -91,13 +91,24 @@ async function ensureDeps() {
   process.exit(1);
 }
 
-await ensureDeps();
+function resolveCliTools(options = {}) {
+  return {
+    ffmpegCommand: resolveCommandPath('ffmpeg', options),
+    ffprobeCommand: resolveCommandPath('ffprobe', options),
+    ytDlpCommand: isURL ? resolveCommandPath('yt-dlp', options) : undefined,
+  };
+}
+
+const tools = await ensureDeps();
 
 let result;
 try {
   result = await analyzeAudio(input, {
     ...analysisRequest.options,
     outputDir: process.cwd(),
+    ffmpegCommand: tools.ffmpegCommand,
+    ffprobeCommand: tools.ffprobeCommand,
+    ytDlpCommand: tools.ytDlpCommand,
     inheritDownloadProgress: true,
   }, {
     onProgress(progress) {
